@@ -1,0 +1,11 @@
+name: Color
+main: dev.color.ColorPlugin
+version: 1.0.2
+author: Ezorp
+description: Base scaffold plugin for Spigot 1.8.8.
+commands:
+  color:
+    description: Open a color GUI for one or more players (1-10 targets), can be runned without argument
+    usage: /color <player> [player2] [player3] ...
+
+
