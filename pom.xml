@@ -6,7 +6,7 @@
 
   <groupId>dev</groupId>
   <artifactId>color</artifactId>
-  <version>1.0.2-SNAPSHOT</version>
+  <version>1.0.2</version>
   <name>Color</name>
   <description>Spigot 1.8.8 plugin scaffold.</description>
   <url>https://example.com/</url>
