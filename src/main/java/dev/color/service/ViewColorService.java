@@ -3,6 +3,7 @@ package dev.color.service;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.ScoreboardManager;
 import org.bukkit.scoreboard.Team;
@@ -104,6 +105,10 @@ public final class ViewColorService {
         for (Map.Entry<UUID, ChatColor> e : map.entrySet()) {
             Player target = Bukkit.getPlayer(e.getKey());
             if (target == null) continue;
+            
+            // Skip invisible players to prevent nametag visibility issue
+            if (target.hasPotionEffect(PotionEffectType.INVISIBILITY)) continue;
+            
             ChatColor c = e.getValue();
             if (c == null) continue;
             Team team = colorTeam.get(c);
