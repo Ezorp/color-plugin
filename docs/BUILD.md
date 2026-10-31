@@ -21,7 +21,7 @@ mvn clean package -DskipTests
 Once the dependencies are cached in `~/.m2`, you can add `-o` to build offline.
 
 Artifacts:
-- The plugin JAR is generated in `target/`, named after the version in `pom.xml` (e.g. `color-1.0.2.jar`).
+- The plugin JAR is generated in `target/`, named after the version in `pom.xml` (e.g. `color-1.1.0.jar`).
 
 ### Notes
 - The project targets Spigot `1.8.8-R0.1-SNAPSHOT` and compiles with Java 8 source/target.

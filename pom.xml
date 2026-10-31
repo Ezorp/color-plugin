@@ -6,9 +6,9 @@
 
   <groupId>dev</groupId>
   <artifactId>color</artifactId>
-  <version>1.0.2</version>
+  <version>1.1.0</version>
   <name>Color</name>
-  <description>Spigot 1.8.8 plugin to color other players' names, visible only to you.</description>
+  <description>Spigot 1.8.8 plugin to color other players' names or mark them with a colored dot, visible only to you.</description>
   <url>https://github.com/Ezorp/color-plugin</url>
 
   <properties>

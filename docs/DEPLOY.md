@@ -13,14 +13,16 @@
 - Commands:
   - `/color` opens a player picker (heads). Click a player to open the color GUI.
   - `/color <player> <player2> ...` opens the color GUI for the listed targets (up to 10).
-- The color GUI shows 16 wool colors. White resets the targets to their default color.
-- Only the caller sees the changed name color (nametag and tab list). Everyone else sees the default.
+  - `/colordot` and `/colordot <player> <player2> ...` work the same way, but put a colored dot (`●`) before the name instead of coloring it.
+- The color GUI shows 16 wool colors. With `/color`, white resets the targets to their default color. With `/colordot`, white is a white dot and the barrier at the top removes the dot.
+- A player can have both a name color and a dot. Each is reset separately.
+- Only the caller sees the changed name color and dot (nametag and tab list). Everyone else sees the default.
 - Disconnecting and reconnecting keeps the caller's choices. A full server restart resets everything.
 
 ### How it works / Compatibility
-- The plugin never modifies the server's scoreboards. For each player who uses `/color`, it sends their client fake teams (one per color, named `colorplg_<n>`) that exist only on that client. Sidebars, health under names and in the tab list, and other plugins' teams all keep working.
-- A colored player is shown with your color instead of any team prefix the server gives them, for you only.
-- A colored player is left uncolored while either of these applies:
+- The plugin never modifies the server's scoreboards. For each player who uses `/color`, it sends their client fake teams (one per look, i.e. dot color + name color, named `colorplg_<n>`) that exist only on that client. Sidebars, health under names and in the tab list, and other plugins' teams all keep working.
+- A player with a name color is shown with your color instead of any team prefix and suffix the server gives them, for you only. A player with only a dot keeps their team prefix and suffix after the dot (cut to fit the 16-character prefix limit).
+- A colored or dotted player is left unchanged (no color, no dot) while either of these applies:
   - They're invisible (invisibility potion). A colored team would show their nametag.
   - Their real team hides their nametag from you (`nametagVisibility` set to `never`, or hidden for your team).
   Their color comes back when that ends.

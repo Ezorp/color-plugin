@@ -2,6 +2,7 @@ package dev.color.command;
 
 import dev.color.gui.ColorMenu;
 import dev.color.gui.PlayerPickerMenu;
+import dev.color.service.ColorMode;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
@@ -17,10 +18,19 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-/** {@code /color} opens the player picker; {@code /color <players...>} opens the color GUI directly. */
+/**
+ * {@code /color} (or {@code /colordot}) opens the player picker; with player names it opens the color GUI
+ * directly. The mode decides whether the chosen color goes on the name or on a dot before it.
+ */
 public class ColorCommand implements CommandExecutor, TabCompleter {
 
     private static final int MAX_TARGETS = 10;
+
+    private final ColorMode mode;
+
+    public ColorCommand(ColorMode mode) {
+        this.mode = mode;
+    }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -31,7 +41,7 @@ public class ColorCommand implements CommandExecutor, TabCompleter {
         Player viewer = (Player) sender;
 
         if (args.length == 0) {
-            PlayerPickerMenu.open(viewer, 0);
+            PlayerPickerMenu.open(viewer, mode, 0);
             return true;
         }
 
@@ -47,7 +57,7 @@ public class ColorCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        ColorMenu.open(viewer, new ArrayList<>(targets));
+        ColorMenu.open(viewer, mode, new ArrayList<>(targets));
         return true;
     }
 

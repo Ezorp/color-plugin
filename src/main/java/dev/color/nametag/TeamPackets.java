@@ -23,6 +23,7 @@ public final class TeamPackets {
     private static Constructor<?> newPacket;
     private static Field nameField;
     private static Field prefixField;
+    private static Field suffixField;
     private static Field playersField;
     private static Field modeField;
     private static Method getHandle;
@@ -38,9 +39,10 @@ public final class TeamPackets {
 
         Class<?> packetClass = Class.forName(nms + "PacketPlayOutScoreboardTeam");
         newPacket = packetClass.getConstructor();
-        // Obfuscated 1.8 field names: a = team name, c = prefix, g = player names, h = mode
+        // Obfuscated 1.8 field names: a = team name, c = prefix, d = suffix, g = player names, h = mode
         nameField = accessible(packetClass, "a");
         prefixField = accessible(packetClass, "c");
+        suffixField = accessible(packetClass, "d");
         playersField = accessible(packetClass, "g");
         modeField = accessible(packetClass, "h");
 
@@ -49,13 +51,14 @@ public final class TeamPackets {
         sendPacket = Class.forName(nms + "PlayerConnection").getMethod("sendPacket", Class.forName(nms + "Packet"));
     }
 
-    /** Sends a team packet. {@code prefix} is only used by {@link #CREATE}. */
-    public static void send(Player viewer, String team, int mode, String prefix, Collection<String> players) {
+    /** Sends a team packet. {@code prefix} and {@code suffix} are only used by {@link #CREATE}. */
+    public static void send(Player viewer, String team, int mode, String prefix, String suffix, Collection<String> players) {
         try {
             Object packet = newPacket.newInstance();
             nameField.set(packet, team);
             modeField.setInt(packet, mode);
             if (prefix != null) prefixField.set(packet, prefix);
+            if (suffix != null) suffixField.set(packet, suffix);
             playersField.set(packet, new ArrayList<>(players));
             sendPacket.invoke(playerConnection.get(getHandle.invoke(viewer)), packet);
         } catch (ReflectiveOperationException e) {
