@@ -1,19 +1,18 @@
 package dev.color;
 
 import dev.color.command.ColorCommand;
-import dev.color.gui.ColorMenu;
-import dev.color.gui.PlayerPickerMenu;
+import dev.color.gui.MenuListener;
 import dev.color.listener.JoinListener;
-import dev.color.listener.KickListener;
-import dev.color.listener.PotionEffectListener;
+import dev.color.service.InvisibilityMonitor;
 import dev.color.service.ViewColorService;
 import org.bukkit.command.PluginCommand;
+import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class ColorPlugin extends JavaPlugin {
 
     private static ColorPlugin instance;
-    private PotionEffectListener potionEffectListener;
+    private final InvisibilityMonitor invisibilityMonitor = new InvisibilityMonitor();
 
     public static ColorPlugin getInstance() {
         return instance;
@@ -23,41 +22,24 @@ public final class ColorPlugin extends JavaPlugin {
     public void onEnable() {
         instance = this;
 
-        // Register command
         PluginCommand colorCmd = getCommand("color");
-        if (colorCmd != null) {
-            ColorCommand executor = new ColorCommand();
-            colorCmd.setExecutor(executor);
-            colorCmd.setTabCompleter(executor);
-        } else {
-            getLogger().warning("Command 'color' is not defined in plugin.yml");
-        }
+        ColorCommand executor = new ColorCommand();
+        colorCmd.setExecutor(executor);
+        colorCmd.setTabCompleter(executor);
 
-        // Register listeners
-        getServer().getPluginManager().registerEvents(new JoinListener(), this);
-        getServer().getPluginManager().registerEvents(new ColorMenu(), this);
-        getServer().getPluginManager().registerEvents(new PlayerPickerMenu(), this);
-        getServer().getPluginManager().registerEvents(new KickListener(), this);
-        
-        // Start the potion effect monitor
-        potionEffectListener = new PotionEffectListener();
-        potionEffectListener.start();
-        
+        PluginManager plugins = getServer().getPluginManager();
+        plugins.registerEvents(new JoinListener(), this);
+        plugins.registerEvents(new MenuListener(), this);
+
+        invisibilityMonitor.start(this);
         getLogger().info("Color enabled.");
     }
 
     @Override
     public void onDisable() {
-        // Stop the potion effect monitor
-        if (potionEffectListener != null) {
-            potionEffectListener.stop();
-        }
-        
+        invisibilityMonitor.stop();
         ViewColorService.shutdown();
         getLogger().info("Color disabled.");
         instance = null;
     }
 }
-
-
-
