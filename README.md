@@ -9,7 +9,7 @@ I have no experience making Spigot Plugin and made this nearly entierly using Cu
 
 Any other version that is not 1.8.8 is not tested, it may works, but I won't do bugfixes if the bug don't happend in 1.8.8 server.
 
-The plugin sets the color of the player's nametag (above their head) and tab list name to the color chosen with the /color command.
+The plugin sets the color of the player's nametag (above their head) and tab list name to the color chosen with the /color command. As a second way to tell players apart, /colordot puts a colored dot (`●`) before their name.
 
 The plugin never modifies the server's scoreboards. Sidebars, health under names and in the tab list, and other plugins' teams all keep working. Colors are sent only to the player who chose them. ProtocolLib is optional but recommended when other plugins also manage nametags (see `docs/DEPLOY.md`).
 
@@ -27,4 +27,5 @@ See `docs/DEPLOY.md`.
 - `/color` opens a player picker GUI (with online player's heads) for quick selection.
 - `/color <player> <player2> ...` (up to 10 targets) opens a GUI for the caller.
 - Caller selects a wool: 16 classic colors; white resets to default for the caller's view.
+- `/colordot` and `/colordot <player> <player2> ...` work the same way but add a colored dot before the name. White is a white dot here; the barrier removes the dot. A player can have both a name color and a dot.
 - Colors are local to the caller and non-persistent (disconnecting and reconnecting to the server don't reset the sets colors, but if the server restarts, everything is cleared (and yes it's a feature)).

@@ -1,5 +1,6 @@
 package dev.color.gui;
 
+import dev.color.service.ColorMode;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -21,11 +22,13 @@ public final class PlayerPickerMenu extends Menu {
     private static final int CLOSE_SLOT = 49;
     private static final int NEXT_SLOT = 53;
 
+    private final ColorMode mode;
     private final int page;
     private final List<UUID> shown = new ArrayList<>();
 
-    private PlayerPickerMenu(List<Player> players, int page, int pageCount) {
+    private PlayerPickerMenu(ColorMode mode, List<Player> players, int page, int pageCount) {
         super(54, ChatColor.DARK_GRAY + "Pick a Player" + ChatColor.GRAY + " (" + (page + 1) + "/" + pageCount + ")");
+        this.mode = mode;
         this.page = page;
 
         int start = page * PAGE_SIZE;
@@ -42,24 +45,24 @@ public final class PlayerPickerMenu extends Menu {
     }
 
     /** Opens the given page, clamped to the pages that currently exist. */
-    public static void open(Player viewer, int page) {
+    public static void open(Player viewer, ColorMode mode, int page) {
         List<Player> players = new ArrayList<>(Bukkit.getOnlinePlayers());
         int pageCount = Math.max(1, (players.size() + PAGE_SIZE - 1) / PAGE_SIZE);
         int clamped = Math.max(0, Math.min(page, pageCount - 1));
-        new PlayerPickerMenu(players, clamped, pageCount).open(viewer);
+        new PlayerPickerMenu(mode, players, clamped, pageCount).open(viewer);
     }
 
     @Override
     protected void onClick(Player viewer, int slot) {
         if (slot == PREVIOUS_SLOT) {
-            open(viewer, page - 1);
+            open(viewer, mode, page - 1);
         } else if (slot == NEXT_SLOT) {
-            open(viewer, page + 1);
+            open(viewer, mode, page + 1);
         } else if (slot == CLOSE_SLOT) {
             close(viewer);
         } else if (slot < shown.size()) {
             Player target = Bukkit.getPlayer(shown.get(slot));
-            if (target != null) ColorMenu.open(viewer, Collections.singletonList(target));
+            if (target != null) ColorMenu.open(viewer, mode, Collections.singletonList(target));
         }
     }
 

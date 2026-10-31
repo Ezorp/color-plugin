@@ -5,6 +5,7 @@ import dev.color.gui.MenuListener;
 import dev.color.listener.JoinListener;
 import dev.color.nametag.ProtocolLibHook;
 import dev.color.nametag.TeamPackets;
+import dev.color.service.ColorMode;
 import dev.color.service.ViewColorService;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.PluginManager;
@@ -32,10 +33,8 @@ public final class ColorPlugin extends JavaPlugin {
             return;
         }
 
-        PluginCommand colorCmd = getCommand("color");
-        ColorCommand executor = new ColorCommand();
-        colorCmd.setExecutor(executor);
-        colorCmd.setTabCompleter(executor);
+        registerCommand("color", ColorMode.NAME);
+        registerCommand("colordot", ColorMode.DOT);
 
         PluginManager plugins = getServer().getPluginManager();
         plugins.registerEvents(new JoinListener(), this);
@@ -49,6 +48,13 @@ public final class ColorPlugin extends JavaPlugin {
         ViewColorService.start(this, packetHook);
 
         getLogger().info("Color enabled.");
+    }
+
+    private void registerCommand(String name, ColorMode mode) {
+        PluginCommand command = getCommand(name);
+        ColorCommand executor = new ColorCommand(mode);
+        command.setExecutor(executor);
+        command.setTabCompleter(executor);
     }
 
     @Override
