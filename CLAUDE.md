@@ -19,24 +19,21 @@ When bumping the version, update it in **both** `pom.xml` and `src/main/resource
 ## Constraints
 
 - Code must compile against `spigot-api 1.8.8-R0.1-SNAPSHOT` with Java 8 source/target. Avoid APIs added after 1.8.8 (e.g. no `EntityPotionEffectEvent`, no `Material` names from 1.13+ — use `WOOL` with data values, `SKULL_ITEM`, etc.). Bugs that only reproduce on other versions are out of scope.
-- `docs/BUILD.md` and `docs/DEPLOY.md` mention ProtocolLib and per-viewer team packets; that is stale. ProtocolLib is not a dependency in `pom.xml` and the code only uses the scoreboard approach described below.
 
 ## Architecture
 
-All state lives in static maps in `service/ViewColorService` (in-memory only; wiped on server restart by design, but preserved across a viewer's disconnect/reconnect):
+All state lives in static maps in `service/ViewColorService`. It is kept in memory only: it's wiped on server restart by design, but it survives a viewer disconnecting and reconnecting.
 
-- `viewerToTargetColor`: viewer UUID → (target UUID → `ChatColor`). The source of truth.
-- `viewerScoreboard`: one private `Scoreboard` per online viewer. `refreshViewerScoreboard` unregisters all teams and rebuilds one team per color (`clr_<ordinal>`, prefix = color code), then calls `viewer.setScoreboard(...)`. This per-viewer scoreboard is how coloring is achieved, so it replaces any main-scoreboard sidebar for that viewer.
-- `pendingTargetsByViewer`: targets selected for the currently open color GUI, consumed on click and cleared on GUI close.
+- `viewerToTargetColor` maps viewer UUID → (target UUID → `ChatColor`). It is the source of truth. A viewer with no colors left is removed from it.
+- `viewerScoreboard` holds one private `Scoreboard` per online viewer who has colors. `refreshViewerScoreboard` unregisters all teams and rebuilds one team per color (`clr_<ordinal>`, prefix = color code), then calls `viewer.setScoreboard(...)`. That private scoreboard is what applies the colors, so it hides the main scoreboard's sidebar for that viewer. Viewers without colors are put back on (or kept on) the main scoreboard.
 
-Flow: `ColorCommand` (`/color` → `PlayerPickerMenu`; `/color <p1> ... <p10>` → `ColorMenu`) → `ColorMenu.open` stores pending targets → wool click calls `ViewColorService.applyColorForViewer` (white = remove/reset) → scoreboard rebuild.
+Flow: `ColorCommand` (`/color` → `PlayerPickerMenu`; `/color <p1> ... <p10>` → `ColorMenu`) → wool click → `ViewColorService.applyColorForViewer` (white = `null` = reset) → scoreboard rebuild.
 
 Things that trigger a full `refreshAllViewers()`:
-- `JoinListener` (join/quit) and `KickListener`; on quit/kick `detachViewer` drops the viewer's scoreboard/pending state but keeps color mappings.
-- `PotionEffectListener`, which is **not** an event listener: it's a `BukkitRunnable` polling every 10 ticks for invisibility changes (1.8.8 has no potion event). Invisible targets are skipped when building teams so the colored team doesn't expose their nametag.
+- `JoinListener`: on join right away, and on quit one tick later, because the quitting player is still listed as online during `PlayerQuitEvent`. Kicks also fire `PlayerQuitEvent`. On quit, `detachViewer` drops the viewer's scoreboard but keeps their color mappings.
+- `service/InvisibilityMonitor`: a repeating task that checks every 10 ticks whether the set of invisible players changed, since 1.8.8 has no potion effect event. Invisible targets are left off the teams so that a colored team doesn't reveal their nametag.
 
-GUI conventions:
-- Menus are identified by **inventory title** (`"Choose a Color"`, `"Pick a Player (x/y)"`), compared after `ChatColor.stripColor`. Changing a title requires updating the matching click/close handlers. The picker's current page is parsed back out of its title.
-- The chosen color is recovered from the wool item's display name (`ChatColor.valueOf(name.toUpperCase().replace(' ', '_'))`), so display names must stay as the enum name.
-- Opening/closing inventories from click handlers is always deferred one tick via `Bukkit.getScheduler().runTask(ColorPlugin.getInstance(), ...)`.
-- `ColorMenu` and `PlayerPickerMenu` are both static-helper classes and `Listener`s registered in `ColorPlugin.onEnable`.
+GUI (`gui/`):
+- Every menu extends `Menu`, which is the `InventoryHolder` of its own inventory and keeps its state (targets, page). `MenuListener` is the only registered listener for menus: it recognizes a menu with `getTopInventory().getHolder() instanceof Menu`, cancels every click and drag, and passes top-inventory clicks to `Menu.onClick(viewer, rawSlot)`. Titles are only for display, so don't parse them.
+- Slots carry meaning: `ColorMenu` maps slot `9 + i` → `COLORS[i]`, and `PlayerPickerMenu` keeps the UUIDs it shows in slot order.
+- `Menu.open`/`Menu.close` defer to the next tick, because opening or closing an inventory inside a click handler isn't safe.
