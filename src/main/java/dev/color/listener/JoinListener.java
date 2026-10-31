@@ -6,21 +6,18 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
+/** Keeps every viewer's colors in sync as players come and go. Kicks also fire {@link PlayerQuitEvent}. */
 public class JoinListener implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
-        // Refresh all viewers when someone joins so teams include the newcomer where needed
+        // The newcomer sees their saved colors, and appears in other viewers' colors
         ViewColorService.refreshAllViewers();
     }
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
-        // Clean up transient state but keep mappings for reconnects
+        // Others drop the leaving player on the next periodic refresh
         ViewColorService.detachViewer(event.getPlayer());
-        ViewColorService.refreshAllViewers();
     }
 }
-
-
-

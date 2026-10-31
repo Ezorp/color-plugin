@@ -2,10 +2,11 @@ name: Color
 main: dev.color.ColorPlugin
 version: 1.0.2
 author: Ezorp
-description: Base scaffold plugin for Spigot 1.8.8.
+softdepend: [ProtocolLib]
+description: Color other players' names (nametag and tab list), visible only to you.
 commands:
   color:
-    description: Open a color GUI for one or more players (1-10 targets), can be runned without argument
-    usage: /color <player> [player2] [player3] ...
+    description: Open a color GUI for up to 10 players, or a player picker when run without arguments
+    usage: /color [player] [player2] ... (up to 10)
 
 

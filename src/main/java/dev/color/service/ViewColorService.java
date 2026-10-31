@@ -1,140 +1,126 @@
 package dev.color.service;
 
+import dev.color.nametag.ClientTeams;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.scoreboard.Scoreboard;
-import org.bukkit.scoreboard.ScoreboardManager;
 import org.bukkit.scoreboard.Team;
 
-import java.util.*;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
+/**
+ * Holds which color each viewer assigned to each target, and shows it by putting targets in fake
+ * teams that exist only on that viewer's client (see {@link ClientTeams}). Server scoreboards are
+ * never modified. State is in memory only: it survives reconnects but not server restarts.
+ */
 public final class ViewColorService {
 
-    private static final Map<UUID, List<UUID>> pendingTargetsByViewer = new HashMap<UUID, List<UUID>>();
-    private static final Map<UUID, Map<UUID, ChatColor>> viewerToTargetColor = new HashMap<UUID, Map<UUID, ChatColor>>();
-    private static final Map<UUID, Scoreboard> viewerScoreboard = new HashMap<UUID, Scoreboard>();
+    private static final long REFRESH_PERIOD_TICKS = 10L;
+
+    private static final Map<UUID, Map<UUID, ChatColor>> viewerToTargetColor = new HashMap<>();
+    private static BukkitTask refreshTask;
 
     private ViewColorService() {}
 
-    public static void rememberPendingTargets(Player viewer, List<Player> targets) {
-        List<UUID> uuids = new ArrayList<UUID>();
-        for (Player p : targets) uuids.add(p.getUniqueId());
-        pendingTargetsByViewer.put(viewer.getUniqueId(), uuids);
-    }
-
-    public static List<Player> consumePendingTargets(Player viewer) {
-        List<UUID> uuids = pendingTargetsByViewer.remove(viewer.getUniqueId());
-        if (uuids == null) return Collections.emptyList();
-        List<Player> players = new ArrayList<Player>();
-        for (UUID id : uuids) {
-            Player p = Bukkit.getPlayer(id);
-            if (p != null && p.isOnline()) players.add(p);
-        }
-        return players;
-    }
-
-    public static void clearPendingTargets(Player viewer) {
-        if (viewer == null) return;
-        pendingTargetsByViewer.remove(viewer.getUniqueId());
-    }
-
-    public static void applyColorForViewer(Player viewer, List<Player> targets, ChatColor color) {
-        Map<UUID, ChatColor> map = viewerToTargetColor.get(viewer.getUniqueId());
-        if (map == null) {
-            map = new HashMap<UUID, ChatColor>();
-            viewerToTargetColor.put(viewer.getUniqueId(), map);
-        }
-        for (Player t : targets) {
-            if (color == null) map.remove(t.getUniqueId()); else map.put(t.getUniqueId(), color);
-        }
-        refreshViewerScoreboard(viewer);
-    }
-
-    public static void resetViewer(Player viewer) {
-        viewerToTargetColor.remove(viewer.getUniqueId());
-        pendingTargetsByViewer.remove(viewer.getUniqueId());
-        // no packet mode
-        // If we created a fallback scoreboard for this viewer, restore main scoreboard
-        Scoreboard sb = viewerScoreboard.remove(viewer.getUniqueId());
-        if (sb != null) {
-            ScoreboardManager mgr = Bukkit.getScoreboardManager();
-            if (mgr != null) viewer.setScoreboard(mgr.getMainScoreboard());
-        }
-    }
-
     /**
-     * Clean up transient viewer state on disconnect, but keep color mappings so they persist across reconnects.
+     * Starts the periodic refresh, which picks up invisibility and team changes. Without a packet
+     * hook it also re-sends every color, to undo other plugins' team packets.
      */
-    public static void detachViewer(Player viewer) {
-        if (viewer == null) return;
-        pendingTargetsByViewer.remove(viewer.getUniqueId());
-        Scoreboard sb = viewerScoreboard.remove(viewer.getUniqueId());
-        if (sb != null) {
-            ScoreboardManager mgr = Bukkit.getScoreboardManager();
-            if (mgr != null) viewer.setScoreboard(mgr.getMainScoreboard());
+    public static void start(Plugin plugin, boolean packetHook) {
+        boolean reassert = !packetHook;
+        refreshTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            for (Player viewer : Bukkit.getOnlinePlayers()) {
+                ClientTeams.sync(viewer, desiredTeams(viewer), reassert);
+            }
+        }, REFRESH_PERIOD_TICKS, REFRESH_PERIOD_TICKS);
+    }
+
+    /** Sets (or clears, when {@code color} is null) the color of each target as seen by the viewer. */
+    public static void applyColorForViewer(Player viewer, List<Player> targets, ChatColor color) {
+        Map<UUID, ChatColor> colors = viewerToTargetColor.computeIfAbsent(viewer.getUniqueId(), id -> new HashMap<>());
+        for (Player target : targets) {
+            if (color == null) colors.remove(target.getUniqueId());
+            else colors.put(target.getUniqueId(), color);
         }
+        if (colors.isEmpty()) viewerToTargetColor.remove(viewer.getUniqueId());
+        refreshViewer(viewer);
     }
 
     public static void refreshAllViewers() {
         for (Player viewer : Bukkit.getOnlinePlayers()) {
-            refreshViewerScoreboard(viewer);
+            refreshViewer(viewer);
         }
     }
 
-    public static void refreshViewerScoreboard(Player viewer) {
-        Scoreboard sb = viewerScoreboard.get(viewer.getUniqueId());
-        ScoreboardManager mgr = Bukkit.getScoreboardManager();
-        if (mgr == null) return;
-        if (sb == null) {
-            sb = mgr.getNewScoreboard();
-            viewerScoreboard.put(viewer.getUniqueId(), sb);
-        }
+    public static void refreshViewer(Player viewer) {
+        ClientTeams.sync(viewer, desiredTeams(viewer), false);
+    }
 
-        // Clear previous teams
-        for (Team t : new ArrayList<Team>(sb.getTeams())) {
-            t.unregister();
-        }
+    /** Re-sends all of the viewer's colors, after another plugin's team packet may have overridden them. */
+    public static void reassert(Player viewer) {
+        ClientTeams.sync(viewer, desiredTeams(viewer), true);
+    }
 
-        Map<UUID, ChatColor> map = viewerToTargetColor.get(viewer.getUniqueId());
-        if (map == null) map = Collections.emptyMap();
-
-        // Create a team per color and add entries
-        Map<ChatColor, Team> colorTeam = new EnumMap<ChatColor, Team>(ChatColor.class);
-        for (Map.Entry<UUID, ChatColor> e : map.entrySet()) {
-            Player target = Bukkit.getPlayer(e.getKey());
-            if (target == null) continue;
-            
-            // Skip invisible players to prevent nametag visibility issue
-            if (target.hasPotionEffect(PotionEffectType.INVISIBILITY)) continue;
-            
-            ChatColor c = e.getValue();
-            if (c == null) continue;
-            Team team = colorTeam.get(c);
-            if (team == null) {
-                String teamName = ("clr_" + c.ordinal());
-                if (teamName.length() > 16) teamName = teamName.substring(0, 16);
-                team = sb.registerNewTeam(teamName);
-                team.setPrefix(c.toString());
-                colorTeam.put(c, team);
-            }
-            // Add by entry name (player name) for 1.8 compatibility
-            team.addPlayer(target);
-        }
-
-        viewer.setScoreboard(sb);
+    /** The viewer's client is gone; their color mappings are kept for when they come back. */
+    public static void detachViewer(Player viewer) {
+        ClientTeams.forget(viewer.getUniqueId());
     }
 
     public static void shutdown() {
-        for (Player viewer : Bukkit.getOnlinePlayers()) {
-            try { resetViewer(viewer); } catch (Throwable ignored) {}
+        if (refreshTask != null) {
+            refreshTask.cancel();
+            refreshTask = null;
         }
-        pendingTargetsByViewer.clear();
+        for (Player viewer : Bukkit.getOnlinePlayers()) {
+            ClientTeams.clear(viewer);
+        }
         viewerToTargetColor.clear();
-        viewerScoreboard.clear();
+    }
+
+    /** Color → names of the online targets the viewer should currently see in that color. */
+    private static Map<ChatColor, Set<String>> desiredTeams(Player viewer) {
+        Map<ChatColor, Set<String>> teams = new EnumMap<>(ChatColor.class);
+        Map<UUID, ChatColor> colors = viewerToTargetColor.get(viewer.getUniqueId());
+        if (colors == null) return teams;
+
+        Scoreboard board = viewer.getScoreboard();
+        Team viewerTeam = board.getEntryTeam(viewer.getName());
+        for (Map.Entry<UUID, ChatColor> entry : colors.entrySet()) {
+            Player target = Bukkit.getPlayer(entry.getKey());
+            if (target == null || !canColor(viewer, viewerTeam, target, board)) continue;
+            teams.computeIfAbsent(entry.getValue(), c -> new HashSet<>()).add(target.getName());
+        }
+        return teams;
+    }
+
+    /**
+     * Whether moving the target into a fake team keeps what the viewer is allowed to see. Our teams always
+     * show nametags, so targets whose nametag is meant to be hidden from this viewer are left alone.
+     */
+    private static boolean canColor(Player viewer, Team viewerTeam, Player target, Scoreboard board) {
+        if (target.hasPotionEffect(PotionEffectType.INVISIBILITY)) return false;
+
+        Team realTeam = board.getEntryTeam(target.getName());
+        if (realTeam == null) return true;
+        // Moving the viewer out of their own team would change how they see their teammates
+        if (target.equals(viewer)) return false;
+
+        boolean sameTeam = viewerTeam != null && viewerTeam.getName().equals(realTeam.getName());
+        switch (realTeam.getNameTagVisibility()) {
+            case NEVER:                return false;
+            case HIDE_FOR_OTHER_TEAMS: return sameTeam;
+            case HIDE_FOR_OWN_TEAM:    return !sameTeam;
+            default:                   return true;
+        }
     }
 }
-
-
-

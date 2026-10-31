@@ -8,8 +8,8 @@
   <artifactId>color</artifactId>
   <version>1.0.2</version>
   <name>Color</name>
-  <description>Spigot 1.8.8 plugin scaffold.</description>
-  <url>https://example.com/</url>
+  <description>Spigot 1.8.8 plugin to color other players' names, visible only to you.</description>
+  <url>https://github.com/Ezorp/color-plugin</url>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -30,6 +30,10 @@
       <id>md-5-snapshots</id>
       <url>https://repo.md-5.net/content/repositories/snapshots/</url>
     </repository>
+    <repository>
+      <id>dmulloy2-repo</id>
+      <url>https://repo.dmulloy2.net/repository/public/</url>
+    </repository>
   </repositories>
 
   <dependencies>
@@ -38,6 +42,19 @@
       <artifactId>spigot-api</artifactId>
       <version>1.8.8-R0.1-SNAPSHOT</version>
       <scope>provided</scope>
+    </dependency>
+    <!-- Optional at runtime (softdepend): used to keep colors applied against other plugins' team packets -->
+    <dependency>
+      <groupId>com.comphenix.protocol</groupId>
+      <artifactId>ProtocolLib</artifactId>
+      <version>4.8.0</version>
+      <scope>provided</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
   </dependencies>
 

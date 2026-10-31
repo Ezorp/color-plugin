@@ -11,10 +11,16 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
+/** {@code /color} opens the player picker; {@code /color <players...>} opens the color GUI directly. */
 public class ColorCommand implements CommandExecutor, TabCompleter {
+
+    private static final int MAX_TARGETS = 10;
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -29,47 +35,37 @@ public class ColorCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        // Deduplicate and cap at 10 unique online targets (preserve order)
-        List<Player> targets = new ArrayList<Player>();
-        java.util.Set<String> seen = new java.util.LinkedHashSet<String>();
-        for (int i = 0; i < args.length && seen.size() < 10; i++) {
-            String name = args[i];
-            if (name == null) continue;
-            String key = name.toLowerCase(java.util.Locale.ENGLISH);
-            if (seen.contains(key)) continue;
-            Player t = Bukkit.getPlayerExact(name);
-            if (t != null && t.isOnline()) {
-                seen.add(key);
-                targets.add(t);
-            }
+        // Unique online targets, in the order given
+        Set<Player> targets = new LinkedHashSet<>();
+        for (String name : args) {
+            if (targets.size() >= MAX_TARGETS) break;
+            Player target = Bukkit.getPlayerExact(name);
+            if (target != null) targets.add(target);
         }
         if (targets.isEmpty()) {
             viewer.sendMessage(ChatColor.RED + "No valid online targets.");
             return true;
         }
 
-        ColorMenu.open(viewer, targets);
+        ColorMenu.open(viewer, new ArrayList<>(targets));
         return true;
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        List<String> suggestions = new ArrayList<String>();
         String prefix = args.length == 0 ? "" : args[args.length - 1].toLowerCase(Locale.ENGLISH);
-        java.util.Set<String> already = new java.util.HashSet<String>();
+        Set<String> alreadyTyped = new HashSet<>();
         for (int i = 0; i < args.length - 1; i++) {
-            already.add(args[i].toLowerCase(Locale.ENGLISH));
+            alreadyTyped.add(args[i].toLowerCase(Locale.ENGLISH));
         }
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            String name = p.getName();
-            String lower = name.toLowerCase(Locale.ENGLISH);
-            if (!already.contains(lower) && lower.startsWith(prefix)) {
-                suggestions.add(name);
+
+        List<String> suggestions = new ArrayList<>();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            String lower = player.getName().toLowerCase(Locale.ENGLISH);
+            if (!alreadyTyped.contains(lower) && lower.startsWith(prefix)) {
+                suggestions.add(player.getName());
             }
         }
         return suggestions;
     }
 }
-
-
-
