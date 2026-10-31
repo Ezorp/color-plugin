@@ -11,10 +11,10 @@ Any other version that is not 1.8.8 is not tested, it may works, but I won't do 
 
 The plugin sets the color of the player's nametag (above their head) and tab list name to the color chosen with the /color command.
 
-From what I've tested, the plugin doesn't interfere with a custom tablist set by another plugin. It only overwrites the player names with the right color. However, coloring is done through a private scoreboard for each player who uses /color, so those players won't see the main scoreboard's sidebar (see `docs/DEPLOY.md`).
+The plugin never modifies the server's scoreboards. Sidebars, health under names and in the tab list, and other plugins' teams all keep working. Colors are sent only to the player who chose them. ProtocolLib is optional but recommended when other plugins also manage nametags (see `docs/DEPLOY.md`).
 
 ### Requirements
-- Server: Spigot 1.8.8 (no other plugin needed)
+- Server: Spigot 1.8.8. ProtocolLib is optional but recommended.
 - Building: JDK 8 and Maven 3.8+
 
 ### Build

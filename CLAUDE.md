@@ -12,7 +12,7 @@ Spigot plugin (target: **Minecraft 1.8.8 only**, Java 8) that lets a player priv
 mvn clean package -DskipTests   # JAR lands in target/color-<version>.jar
 ```
 
-There are no tests and no linter. Verification is manual: drop the JAR into a Spigot 1.8.8 server's `plugins/` folder and test in-game.
+There are no tests and no linter. Verification is manual: drop the JAR into a Spigot 1.8.8 server's `plugins/` folder and test in-game, with and without ProtocolLib.
 
 When bumping the version, update it in **both** `pom.xml` and `src/main/resources/plugin.yml`.
 
@@ -22,16 +22,15 @@ When bumping the version, update it in **both** `pom.xml` and `src/main/resource
 
 ## Architecture
 
-All state lives in static maps in `service/ViewColorService`. It is kept in memory only: it's wiped on server restart by design, but it survives a viewer disconnecting and reconnecting.
+The plugin never modifies server scoreboards. Colors are shown by sending each viewer **fake team packets** that exist only on their client.
 
-- `viewerToTargetColor` maps viewer UUID → (target UUID → `ChatColor`). It is the source of truth. A viewer with no colors left is removed from it.
-- `viewerScoreboard` holds one private `Scoreboard` per online viewer who has colors. `refreshViewerScoreboard` unregisters all teams and rebuilds one team per color (`clr_<ordinal>`, prefix = color code), then calls `viewer.setScoreboard(...)`. That private scoreboard is what applies the colors, so it hides the main scoreboard's sidebar for that viewer. Viewers without colors are put back on (or kept on) the main scoreboard.
+- `service/ViewColorService` is the source of truth: viewer UUID → (target UUID → `ChatColor`), stored as static maps. It is kept in memory only: it's wiped on server restart by design, but it survives a viewer disconnecting and reconnecting. `desiredTeams(viewer)` turns it into color → target names. It leaves out targets that are offline, invisible, or whose real team (on the viewer's current scoreboard) hides their nametag from the viewer, since our teams always show nametags.
+- `nametag/ClientTeams` tracks which fake teams (`colorplg_<ordinal>`) and members each viewer's client has, and `sync` sends only the difference. Players who leave our teams are re-added to their real team (mode 3), or removed (mode 4) if they have none. **The tracked state must match the client exactly.** The 1.8 client errors on create-existing / modify-unknown team packets, and on removing a player from a team they're not in. That's why the state is updated before sending, and dropped on quit with `detachViewer`.
+- `nametag/TeamPackets` builds `PacketPlayOutScoreboardTeam` by reflection on the 1.8.8 server internals (obfuscated fields `a` name, `c` prefix, `g` players, `h` mode), so the build only needs the Spigot API. `init()` runs in `onEnable`, and the plugin disables itself if it fails.
+- `nametag/ProtocolLibHook` is optional (`softdepend`). It is only loaded when ProtocolLib is enabled, so don't reference ProtocolLib classes anywhere else. It watches other plugins' team packets: if one adds a colored target to another team, it schedules `ViewColorService.reassert` for the next tick. It also strips colored targets from their mode-4 removals, editing a `deepClone`, because packet objects are shared between players.
+- `ViewColorService.start` runs a sync every 10 ticks. That picks up invisibility and team changes (1.8.8 has no potion event). Without ProtocolLib it also *reasserts*: it re-sends every member, which undoes other plugins' team packets within half a second.
 
-Flow: `ColorCommand` (`/color` → `PlayerPickerMenu`; `/color <p1> ... <p10>` → `ColorMenu`) → wool click → `ViewColorService.applyColorForViewer` (white = `null` = reset) → scoreboard rebuild.
-
-Things that trigger a full `refreshAllViewers()`:
-- `JoinListener`: on join right away, and on quit one tick later, because the quitting player is still listed as online during `PlayerQuitEvent`. Kicks also fire `PlayerQuitEvent`. On quit, `detachViewer` drops the viewer's scoreboard but keeps their color mappings.
-- `service/InvisibilityMonitor`: a repeating task that checks every 10 ticks whether the set of invisible players changed, since 1.8.8 has no potion effect event. Invisible targets are left off the teams so that a colored team doesn't reveal their nametag.
+Flow: `ColorCommand` (`/color` → `PlayerPickerMenu`; `/color <p1> ... <p10>` → `ColorMenu`) → wool click → `ViewColorService.applyColorForViewer` (white = `null` = reset) → `ClientTeams.sync`.
 
 GUI (`gui/`):
 - Every menu extends `Menu`, which is the `InventoryHolder` of its own inventory and keeps its state (targets, page). `MenuListener` is the only registered listener for menus: it recognizes a menu with `getTopInventory().getHolder() instanceof Menu`, cancels every click and drag, and passes top-inventory clicks to `Menu.onClick(viewer, rawSlot)`. Titles are only for display, so don't parse them.

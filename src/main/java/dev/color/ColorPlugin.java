@@ -3,16 +3,18 @@ package dev.color;
 import dev.color.command.ColorCommand;
 import dev.color.gui.MenuListener;
 import dev.color.listener.JoinListener;
-import dev.color.service.InvisibilityMonitor;
+import dev.color.nametag.ProtocolLibHook;
+import dev.color.nametag.TeamPackets;
 import dev.color.service.ViewColorService;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.logging.Level;
+
 public final class ColorPlugin extends JavaPlugin {
 
     private static ColorPlugin instance;
-    private final InvisibilityMonitor invisibilityMonitor = new InvisibilityMonitor();
 
     public static ColorPlugin getInstance() {
         return instance;
@@ -21,6 +23,14 @@ public final class ColorPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         instance = this;
+
+        try {
+            TeamPackets.init();
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            getLogger().log(Level.SEVERE, "Unsupported server version, Color requires Spigot 1.8.8. Disabling.", e);
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
 
         PluginCommand colorCmd = getCommand("color");
         ColorCommand executor = new ColorCommand();
@@ -31,13 +41,18 @@ public final class ColorPlugin extends JavaPlugin {
         plugins.registerEvents(new JoinListener(), this);
         plugins.registerEvents(new MenuListener(), this);
 
-        invisibilityMonitor.start(this);
+        boolean packetHook = plugins.isPluginEnabled("ProtocolLib");
+        if (packetHook) {
+            ProtocolLibHook.register(this);
+            getLogger().info("ProtocolLib found: colors are re-applied as soon as another plugin overrides them.");
+        }
+        ViewColorService.start(this, packetHook);
+
         getLogger().info("Color enabled.");
     }
 
     @Override
     public void onDisable() {
-        invisibilityMonitor.stop();
         ViewColorService.shutdown();
         getLogger().info("Color disabled.");
         instance = null;

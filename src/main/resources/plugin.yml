@@ -2,6 +2,7 @@ name: Color
 main: dev.color.ColorPlugin
 version: 1.0.2
 author: Ezorp
+softdepend: [ProtocolLib]
 description: Color other players' names (nametag and tab list), visible only to you.
 commands:
   color:

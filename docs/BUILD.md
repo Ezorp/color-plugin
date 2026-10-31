@@ -3,7 +3,7 @@
 ### Prerequisites
 - JDK 8 (1.8)
 - Maven 3.8+
-- Internet access on the first build, to download the Spigot API from the Spigot repository
+- Internet access on the first build, to download the Spigot API and ProtocolLib (compile-only) from their Maven repositories
 
 Verify Java and Maven:
 ```bash
@@ -25,6 +25,7 @@ Artifacts:
 
 ### Notes
 - The project targets Spigot `1.8.8-R0.1-SNAPSHOT` and compiles with Java 8 source/target.
-- The plugin has no runtime dependencies other than the Spigot server itself.
+- ProtocolLib is a `provided` dependency, declared as `softdepend` in `plugin.yml`. The plugin runs without it.
+- Packets are sent through the 1.8.8 server internals using reflection, so the build doesn't need BuildTools or the full Spigot server jar.
 - The version appears in both `pom.xml` and `src/main/resources/plugin.yml`. Keep them in sync when releasing.
 - There is no automated test suite. Test changes on a local Spigot 1.8.8 server.
